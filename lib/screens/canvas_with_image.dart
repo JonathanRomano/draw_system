@@ -66,7 +66,6 @@ class CanvasWithImage extends HookWidget {
               allSketches: allSketches,
               canvasGlobalKey: canvasGlobalKey,
               filled: filled,
-              polygonSides: polygonSides,
             ),
           ),
           Positioned(
@@ -84,7 +83,6 @@ class CanvasWithImage extends HookWidget {
                 allSketches: allSketches,
                 canvasGlobalKey: canvasGlobalKey,
                 filled: filled,
-                polygonSides: polygonSides,
               ),
             ),
           ),

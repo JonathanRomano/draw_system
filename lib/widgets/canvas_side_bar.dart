@@ -26,7 +26,6 @@ class CanvasSideBar extends HookWidget {
   final ValueNotifier<List<Sketch>> allSketches;
   final GlobalKey canvasGlobalKey;
   final ValueNotifier<bool> filled;
-  final ValueNotifier<int> polygonSides;
 
   const CanvasSideBar({
     Key? key,
@@ -38,7 +37,6 @@ class CanvasSideBar extends HookWidget {
     required this.allSketches,
     required this.canvasGlobalKey,
     required this.filled,
-    required this.polygonSides,
   }) : super(key: key);
 
   @override
@@ -105,18 +103,6 @@ class CanvasSideBar extends HookWidget {
                   ),
                 ),
                 _IconBox(
-                  iconData: Icons.hexagon_outlined,
-                  selected: drawingMode.value == DrawingMode.polygon,
-                  onTap: () => drawingMode.value = DrawingMode.polygon,
-                  tooltip: 'Polygon',
-                ),
-                _IconBox(
-                  iconData: FontAwesomeIcons.eraser,
-                  selected: drawingMode.value == DrawingMode.eraser,
-                  onTap: () => drawingMode.value = DrawingMode.eraser,
-                  tooltip: 'Eraser',
-                ),
-                _IconBox(
                   iconData: FontAwesomeIcons.square,
                   selected: drawingMode.value == DrawingMode.square,
                   onTap: () => drawingMode.value = DrawingMode.square,
@@ -127,6 +113,12 @@ class CanvasSideBar extends HookWidget {
                   selected: drawingMode.value == DrawingMode.circle,
                   onTap: () => drawingMode.value = DrawingMode.circle,
                   tooltip: 'Circle',
+                ),
+                _IconBox(
+                  iconData: FontAwesomeIcons.eraser,
+                  selected: drawingMode.value == DrawingMode.eraser,
+                  onTap: () => drawingMode.value = DrawingMode.eraser,
+                  tooltip: 'Eraser',
                 ),
               ],
             ),
@@ -144,29 +136,6 @@ class CanvasSideBar extends HookWidget {
                   },
                 ),
               ],
-            ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              child: drawingMode.value == DrawingMode.polygon
-                  ? Row(
-                      children: [
-                        const Text(
-                          'Polygon Sides: ',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        Slider(
-                          value: polygonSides.value.toDouble(),
-                          min: 3,
-                          max: 8,
-                          onChanged: (val) {
-                            polygonSides.value = val.toInt();
-                          },
-                          label: '${polygonSides.value}',
-                          divisions: 5,
-                        ),
-                      ],
-                    )
-                  : const SizedBox.shrink(),
             ),
             const SizedBox(height: 10),
             const Text(
@@ -195,22 +164,6 @@ class CanvasSideBar extends HookWidget {
                   max: 50,
                   onChanged: (val) {
                     strokeSize.value = val;
-                  },
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                const Text(
-                  'Eraser Size: ',
-                  style: TextStyle(fontSize: 12),
-                ),
-                Slider(
-                  value: eraserSize.value,
-                  min: 0,
-                  max: 80,
-                  onChanged: (val) {
-                    eraserSize.value = val;
                   },
                 ),
               ],

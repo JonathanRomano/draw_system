@@ -46,7 +46,6 @@ class DrawingPage extends HookWidget {
               allSketches: allSketches,
               canvasGlobalKey: canvasGlobalKey,
               filled: filled,
-              polygonSides: polygonSides,
             ),
           ),
           Positioned(
@@ -66,7 +65,6 @@ class DrawingPage extends HookWidget {
                 allSketches: allSketches,
                 canvasGlobalKey: canvasGlobalKey,
                 filled: filled,
-                polygonSides: polygonSides,
               ),
             ),
           ),

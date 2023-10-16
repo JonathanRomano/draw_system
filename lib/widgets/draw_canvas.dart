@@ -14,7 +14,6 @@ class DrawingCanvas extends HookWidget {
   final ValueNotifier<Sketch?> currentSketch;
   final ValueNotifier<List<Sketch>> allSketches;
   final GlobalKey canvasGlobalKey;
-  final ValueNotifier<int> polygonSides;
   final ValueNotifier<bool> filled;
 
   const DrawingCanvas({
@@ -30,7 +29,6 @@ class DrawingCanvas extends HookWidget {
     required this.allSketches,
     required this.canvasGlobalKey,
     required this.filled,
-    required this.polygonSides,
   }) : super(key: key);
 
   @override
