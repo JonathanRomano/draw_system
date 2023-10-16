@@ -61,10 +61,15 @@ class DrawingCanvas extends HookWidget {
         final box = context.findRenderObject() as RenderBox;
         final offset = box.globalToLocal(details.position);
 
-        currentSketch.value = Sketch(
+        currentSketch.value = Sketch.fromDrawingMode(
+          Sketch(
             points: [offset],
             color: selectedColor.value,
-            size: strokeSize.value);
+            size: strokeSize.value,
+          ),
+          drawingMode.value,
+          filled.value,
+        );
       },
       onPointerMove: (details) {
         final box = context.findRenderObject() as RenderBox;
@@ -73,8 +78,13 @@ class DrawingCanvas extends HookWidget {
         final points = List<Offset>.from(currentSketch.value?.points ?? [])
           ..add(offset);
 
-        currentSketch.value = Sketch(
-            points: points, color: selectedColor.value, size: strokeSize.value);
+        currentSketch.value = Sketch.fromDrawingMode(
+            Sketch(
+                points: points,
+                color: selectedColor.value,
+                size: strokeSize.value),
+            drawingMode.value,
+            filled.value);
       },
       onPointerUp: (details) {
         allSketches.value = List<Sketch>.from(allSketches.value)
@@ -121,11 +131,27 @@ class SketchPainter extends CustomPainter {
 
       Paint paint = Paint()
         ..color = sketch.color
-        ..strokeWidth = sketch.size
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
+        ..strokeCap = StrokeCap.round;
 
-      canvas.drawPath(path, paint);
+      if (!sketch.filled) {
+        paint.strokeWidth = sketch.size;
+        paint.style = PaintingStyle.stroke;
+      }
+
+      Offset firstPoint = sketch.points.first;
+      Offset lastPoint = sketch.points.last;
+
+      Rect rect = Rect.fromPoints(firstPoint, lastPoint);
+
+      if (sketch.type == SketchType.scribble) {
+        canvas.drawPath(path, paint);
+      } else if (sketch.type == SketchType.line) {
+        canvas.drawLine(firstPoint, lastPoint, paint);
+      } else if (sketch.type == SketchType.circle) {
+        canvas.drawOval(rect, paint);
+      } else if (sketch.type == SketchType.square) {
+        canvas.drawRect(rect, paint);
+      }
     }
   }
 
