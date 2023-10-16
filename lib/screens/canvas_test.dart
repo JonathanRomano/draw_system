@@ -16,7 +16,6 @@ class DrawingPage extends HookWidget {
     final eraserSize = useState<double>(30);
     final drawingMode = useState(DrawingMode.pencil);
     final filled = useState<bool>(false);
-    final polygonSides = useState<int>(3);
 
     final canvasGlobalKey = GlobalKey();
 
