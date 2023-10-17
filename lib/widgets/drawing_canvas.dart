@@ -1,16 +1,21 @@
 import 'dart:io';
 
 import "package:flutter/material.dart";
+import 'package:flutter/rendering.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:draw_system/models/drawing_mode.dart';
 import 'package:draw_system/models/sketch.dart';
+
+import 'dart:ui' as ui;
+import 'dart:typed_data';
+
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 
 class DrawingCanvas extends HookWidget {
   final ValueNotifier<Color> selectedColor;
   final ValueNotifier<double> strokeSize;
   final ValueNotifier<double> eraserSize;
   final ValueNotifier<DrawingMode> drawingMode;
-  final AnimationController sideBarController;
   final ValueNotifier<Sketch?> currentSketch;
   final ValueNotifier<List<Sketch>> allSketches;
   final GlobalKey canvasGlobalKey;
@@ -18,14 +23,14 @@ class DrawingCanvas extends HookWidget {
   final String imagePath;
   final double? imageHeight;
   final double? imageWidth;
+  final GlobalKey imageKey = GlobalKey();
 
-  const DrawingCanvas({
+  DrawingCanvas({
     Key? key,
     required this.selectedColor,
     required this.strokeSize,
     required this.eraserSize,
     required this.drawingMode,
-    required this.sideBarController,
     required this.currentSketch,
     required this.allSketches,
     required this.canvasGlobalKey,
@@ -37,26 +42,30 @@ class DrawingCanvas extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Image.file(
-          File(imagePath),
-        ),
-        ClipRRect(
-          child: SizedBox(
-            width: 200,
-            height: 200,
-            child: buildAllPaths(),
+    return RepaintBoundary(
+      key: imageKey,
+      child: Stack(
+        children: [
+          Image.file(
+            File(imagePath),
           ),
-        ),
-        ClipRRect(
-          child: SizedBox(
-            width: 200,
-            height: 200,
-            child: buildCurrentPath(context),
+          ClipRRect(
+            child: SizedBox(
+              width: 782,
+              height: 586,
+              child: buildAllPaths(),
+            ),
           ),
-        ),
-      ],
+          ClipRRect(
+            child: SizedBox(
+              width: 782,
+              height: 586,
+              child: buildCurrentPath(context),
+            ),
+          ),
+          ElevatedButton(onPressed: saveImage, child: const Text("Test"))
+        ],
+      ),
     );
   }
 
@@ -112,6 +121,22 @@ class DrawingCanvas extends HookWidget {
         ),
       ),
     );
+  }
+
+  Future saveImage() async {
+    final RenderRepaintBoundary boundary =
+        imageKey.currentContext?.findRenderObject() as RenderRepaintBoundary;
+
+    final ui.Image image = await boundary.toImage();
+
+    final ByteData? byteData =
+        await image.toByteData(format: ui.ImageByteFormat.png);
+
+    final Uint8List pngBytes = byteData!.buffer.asUint8List();
+
+    ImageGallerySaver.saveImage(pngBytes);
+
+    return pngBytes;
   }
 }
 

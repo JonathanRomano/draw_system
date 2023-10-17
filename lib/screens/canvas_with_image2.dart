@@ -4,9 +4,7 @@ import 'package:draw_system/widgets/drawing_canvas.dart';
 import 'package:draw_system/models/drawing_mode.dart';
 import 'package:draw_system/models/sketch.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:draw_system/widgets/canvas_side_bar.dart';
-
-import 'dart:io';
+import 'package:draw_system/widgets/canvas_side_bar_new.dart';
 
 class CanvasWithImage2 extends HookWidget {
   final String imagePath;
@@ -26,25 +24,9 @@ class CanvasWithImage2 extends HookWidget {
     ValueNotifier<Sketch?> currentSketch = useState(null);
     ValueNotifier<List<Sketch>> allSketches = useState([]);
 
-    final animationController = useAnimationController(
-      duration: const Duration(milliseconds: 150),
-      initialValue: 1,
-    );
     return Scaffold(
       appBar: AppBar(
         title: const Text("Edit your source Image"),
-        actions: [
-          IconButton(
-            onPressed: () {
-              if (animationController.value == 0) {
-                animationController.forward();
-              } else {
-                animationController.reverse();
-              }
-            },
-            icon: const Icon(Icons.menu),
-          ),
-        ],
       ),
       body: Stack(
         children: [
@@ -58,7 +40,6 @@ class CanvasWithImage2 extends HookWidget {
                 selectedColor: selectedColor,
                 strokeSize: strokeSize,
                 eraserSize: eraserSize,
-                sideBarController: animationController,
                 currentSketch: currentSketch,
                 allSketches: allSketches,
                 canvasGlobalKey: canvasGlobalKey,
@@ -68,21 +49,15 @@ class CanvasWithImage2 extends HookWidget {
             ),
           ),
           Positioned(
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(-1, 0),
-                end: Offset.zero,
-              ).animate(animationController),
-              child: CanvasSideBar(
-                drawingMode: drawingMode,
-                selectedColor: selectedColor,
-                strokeSize: strokeSize,
-                eraserSize: eraserSize,
-                currentSketch: currentSketch,
-                allSketches: allSketches,
-                canvasGlobalKey: canvasGlobalKey,
-                filled: filled,
-              ),
+            child: CanvasSideBar(
+              drawingMode: drawingMode,
+              selectedColor: selectedColor,
+              strokeSize: strokeSize,
+              eraserSize: eraserSize,
+              currentSketch: currentSketch,
+              allSketches: allSketches,
+              canvasGlobalKey: canvasGlobalKey,
+              filled: filled,
             ),
           ),
         ],
