@@ -1,4 +1,5 @@
 import 'package:draw_system/screens/edit_image.dart';
+import 'package:draw_system/screens/canvas_with_image2.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:draw_system/screens/canvas_test.dart';
@@ -51,7 +52,7 @@ class HomePage extends StatelessWidget {
         context,
         MaterialPageRoute(
             builder: (context) =>
-                CanvasWithImage(imagePath: returnedImage.path)),
+                CanvasWithImage2(imagePath: returnedImage.path)),
       );
     }
   }
