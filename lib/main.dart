@@ -1,7 +1,11 @@
 import "package:flutter/material.dart";
 import "package:draw_system/screens/home_page.dart";
+import "package:flutter_dotenv/flutter_dotenv.dart";
 
-void main() => runApp(const App());
+void main() async {
+  await dotenv.load();
+  runApp(const App());
+}
 
 class App extends StatelessWidget {
   const App({super.key});
