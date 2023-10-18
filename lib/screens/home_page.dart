@@ -1,4 +1,5 @@
 import 'package:draw_system/screens/canvas_with_image2.dart';
+import 'package:draw_system/screens/projects_view.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:draw_system/screens/canvas_test.dart';
@@ -34,7 +35,18 @@ class HomePage extends StatelessWidget {
                   );
                 },
                 child: const Text('GO TO CANVAS TEST!'),
-              )
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProjectsView(),
+                    ),
+                  );
+                },
+                child: const Text('GO TO PROJECT LIST API TEST!'),
+              ),
             ]),
       ),
     );
