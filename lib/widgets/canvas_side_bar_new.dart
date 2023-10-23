@@ -114,6 +114,7 @@ class CanvasSideBar extends HookWidget {
                   }()),
               const SizedBox(height: 10),
               FloatingActionButton(
+                heroTag: "fillShape",
                 onPressed: () => filled.value = !filled.value,
                 backgroundColor: filled.value ? Colors.blue : Colors.blue[200],
                 child: const Icon(
@@ -141,6 +142,7 @@ class CanvasSideBar extends HookWidget {
               */
               const SizedBox(height: 20),
               FloatingActionButton(
+                heroTag: "undo",
                 onPressed: allSketches.value.isNotEmpty
                     ? () => undoRedoStack.value.undo()
                     : null,
@@ -151,6 +153,7 @@ class CanvasSideBar extends HookWidget {
                 valueListenable: undoRedoStack.value._canRedo,
                 builder: (_, canRedo, __) {
                   return FloatingActionButton(
+                    heroTag: "redo",
                     onPressed:
                         canRedo ? () => undoRedoStack.value.redo() : null,
                     child: const Icon(Icons.redo),
@@ -159,6 +162,7 @@ class CanvasSideBar extends HookWidget {
               ),
               const SizedBox(height: 20),
               FloatingActionButton(
+                heroTag: "clear",
                 onPressed: () => undoRedoStack.value.clear(),
                 child: const Icon(Icons.clear),
               ),
