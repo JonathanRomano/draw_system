@@ -73,7 +73,7 @@ class ProjectCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                'Name: ${project.name}',
+                project.name,
                 style:
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),

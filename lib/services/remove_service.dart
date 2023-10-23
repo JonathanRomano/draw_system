@@ -35,4 +35,20 @@ class RemoteService {
       throw Exception('Failed to fetch project data');
     }
   }
+
+  Future<List<Instruction>> fetchProjectInstructionsById(int id) async {
+    final response = await client.get(
+      Uri.parse('${dotenv.env["API_URL"]}/getSources/$id'),
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> jsonList = json.decode(response.body);
+      List<Instruction> instructions =
+          jsonList.map((json) => Instruction.fromJson(json)).toList();
+
+      return instructions;
+    } else {
+      throw Exception('Failed to fetch project data');
+    }
+  }
 }
