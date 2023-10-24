@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import "package:flutter/material.dart";
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:draw_system/models/drawing_mode.dart';
@@ -15,6 +17,8 @@ class DrawingCanvas extends HookWidget {
   final ValueNotifier<List<Sketch>> allSketches;
   final GlobalKey canvasGlobalKey;
   final ValueNotifier<bool> filled;
+  final ValueNotifier<String> pointerMode;
+  final ValueNotifier<Path> rotatePath;
 
   const DrawingCanvas({
     Key? key,
@@ -29,6 +33,8 @@ class DrawingCanvas extends HookWidget {
     required this.allSketches,
     required this.canvasGlobalKey,
     required this.filled,
+    required this.pointerMode,
+    required this.rotatePath,
   }) : super(key: key);
 
   @override
@@ -36,7 +42,7 @@ class DrawingCanvas extends HookWidget {
     return Stack(
       children: [
         buildAllPaths(),
-        buildCurrentPath(context),
+        buildCurrentPath(context, pointerMode),
       ],
     );
   }
@@ -47,46 +53,109 @@ class DrawingCanvas extends HookWidget {
         height: height,
         width: width,
         child: CustomPaint(
-          painter: SketchPainter(sketches: allSketches.value),
+          painter: SketchPainter(
+            sketches: allSketches.value,
+            displayTransformersControls:
+                allSketches.value.isNotEmpty && currentSketch.value == null,
+          ),
         ),
       ),
     );
   }
 
-  Widget buildCurrentPath(BuildContext context) {
+  Widget buildCurrentPath(
+    BuildContext context,
+    ValueNotifier<String> pointerMode,
+  ) {
     return Listener(
       onPointerDown: (details) {
         final box = context.findRenderObject() as RenderBox;
         final offset = box.globalToLocal(details.position);
 
-        currentSketch.value = Sketch.fromDrawingMode(
-          Sketch(
-            points: [offset],
-            color: selectedColor.value,
-            size: strokeSize.value,
-          ),
-          drawingMode.value,
-          filled.value,
-        );
+        List<Rect> buttons = [];
+
+        if (allSketches.value.isNotEmpty) {
+          buttons = allSketches.value.last.calculateButtonPositions();
+        }
+
+        if (buttons.isNotEmpty && buttons[1].contains(offset)) {
+          print("scaleButton");
+          pointerMode.value = "scale";
+        } else if (buttons.isNotEmpty && buttons[2].contains(offset)) {
+          rotatePath.value = allSketches.value.last.path;
+          pointerMode.value = "rotate";
+        } else if (buttons.isNotEmpty && buttons[3].contains(offset)) {
+          pointerMode.value = "move";
+        } else {
+          pointerMode.value = "draw";
+          currentSketch.value = Sketch.fromDrawingMode(
+            Sketch(
+              path: Path(),
+              points: [offset],
+              color: selectedColor.value,
+              size: strokeSize.value,
+            ),
+            drawingMode.value,
+            filled.value,
+          );
+        }
       },
       onPointerMove: (details) {
         final box = context.findRenderObject() as RenderBox;
         final offset = box.globalToLocal(details.position);
 
-        final points = List<Offset>.from(currentSketch.value?.points ?? [])
-          ..add(offset);
+        if (pointerMode.value == "draw") {
+          final points = List<Offset>.from(currentSketch.value?.points ?? [])
+            ..add(offset);
 
-        currentSketch.value = Sketch.fromDrawingMode(
+          currentSketch.value = Sketch.fromDrawingMode(
             Sketch(
+                path: Path(),
                 points: points,
                 color: selectedColor.value,
                 size: strokeSize.value),
             drawingMode.value,
-            filled.value);
+            filled.value,
+          );
+        } else if (pointerMode.value == "move") {
+          Sketch lastSketch = allSketches.value.removeLast();
+          Offset moveOffset = lastSketch.calculateMove(offset);
+
+          Path translatedPath = lastSketch.path.shift(moveOffset);
+
+          Sketch updateSketch = Sketch.fromPath(lastSketch, translatedPath);
+
+          allSketches.value = List.from(allSketches.value)..add(updateSketch);
+        } else if (pointerMode.value == "rotate") {
+          Sketch lastSketch = allSketches.value.removeLast();
+
+          Offset center = rotatePath.value.getBounds().center;
+
+          double rotationAngle =
+              lastSketch.calculateRotationAngle(center, offset);
+
+          Matrix4 rotationMatrix = Matrix4.identity();
+          rotationMatrix.translate(center.dx, center.dy);
+          rotationMatrix.rotateZ(rotationAngle);
+          rotationMatrix.translate(-center.dx, -center.dy);
+
+          Path newPath = rotatePath.value.transform(rotationMatrix.storage);
+
+          Sketch updateSketch = Sketch.fromPath(lastSketch, newPath);
+
+          allSketches.value = List.from(allSketches.value)..add(updateSketch);
+        } else if (pointerMode.value == "scale") {
+          print("handle resize");
+        }
       },
       onPointerUp: (details) {
-        allSketches.value = List<Sketch>.from(allSketches.value)
-          ..add(currentSketch.value!);
+        if (pointerMode.value == "draw") {
+          allSketches.value = List<Sketch>.from(allSketches.value)
+            ..add(currentSketch.value!);
+          currentSketch.value = null;
+        } else if (pointerMode.value == "rotate") {
+          rotatePath.value = Path();
+        }
       },
       child: RepaintBoundary(
         child: SizedBox(
@@ -105,27 +174,15 @@ class DrawingCanvas extends HookWidget {
 
 class SketchPainter extends CustomPainter {
   final List<Sketch> sketches;
+  bool displayTransformersControls;
 
-  SketchPainter({required this.sketches});
+  SketchPainter(
+      {required this.sketches, this.displayTransformersControls = false});
 
   @override
   void paint(Canvas canvas, Size size) {
     for (Sketch sketch in sketches) {
-      final points = sketch.points;
-
-      final path = Path();
-      path.moveTo(points.first.dx, points.first.dy);
-
-      for (int i = 1; i < points.length - 1; ++i) {
-        final p0 = points[i];
-        final p1 = points[i + 1];
-        path.quadraticBezierTo(
-          p0.dx,
-          p0.dy,
-          (p0.dx + p1.dx) / 2,
-          (p0.dy + p1.dy) / 2,
-        );
-      }
+      Path path = sketch.path;
 
       Paint paint = Paint()
         ..color = sketch.color
@@ -136,20 +193,45 @@ class SketchPainter extends CustomPainter {
         paint.style = PaintingStyle.stroke;
       }
 
-      Offset firstPoint = sketch.points.first;
-      Offset lastPoint = sketch.points.last;
+      List<PathMetric> pathMetrics = path.computeMetrics().toList();
+      if (pathMetrics.isNotEmpty) {
+        PathMetric pathMetric = pathMetrics.first;
 
-      Rect rect = Rect.fromPoints(firstPoint, lastPoint);
+        dynamic firstPointTangent = pathMetric.getTangentForOffset(0.0);
+        Offset firstPoint = firstPointTangent.position;
 
-      if (sketch.type == SketchType.scribble) {
-        canvas.drawPath(path, paint);
-      } else if (sketch.type == SketchType.line) {
-        canvas.drawLine(firstPoint, lastPoint, paint);
-      } else if (sketch.type == SketchType.circle) {
-        canvas.drawOval(rect, paint);
-      } else if (sketch.type == SketchType.square) {
-        canvas.drawRect(rect, paint);
+        double pathLength = pathMetric.length;
+        dynamic lastPointTangent = pathMetric.getTangentForOffset(pathLength);
+        Offset lastPoint = lastPointTangent.position;
+
+        Rect rect = Rect.fromPoints(firstPoint, lastPoint);
+
+        if (sketch.type == SketchType.scribble) {
+          canvas.drawPath(path, paint);
+        } else if (sketch.type == SketchType.line) {
+          canvas.drawLine(firstPoint, lastPoint, paint);
+        } else if (sketch.type == SketchType.circle) {
+          canvas.drawOval(rect, paint);
+        } else if (sketch.type == SketchType.square) {
+          canvas.drawRect(rect, paint);
+        }
       }
+    }
+
+    if (displayTransformersControls && sketches.isNotEmpty) {
+      Sketch sketch = sketches.last;
+
+      Paint paint = Paint()
+        ..color = Colors.black
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+
+      List<Rect> buttons = sketch.calculateButtonPositions();
+
+      canvas.drawRect(buttons[0], paint);
+      canvas.drawRect(buttons[1], paint);
+      canvas.drawRect(buttons[2], paint);
+      canvas.drawRect(buttons[3], paint);
     }
   }
 
