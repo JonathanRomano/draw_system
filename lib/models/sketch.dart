@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:draw_system/models/drawing_mode.dart';
 
@@ -7,19 +9,64 @@ class Sketch {
   final double size;
   final SketchType type;
   final bool filled;
+  final Path path;
 
   Sketch({
     required this.points,
+    required this.path,
     this.color = Colors.black,
     this.type = SketchType.scribble,
     this.filled = true,
     this.size = 10,
   });
 
+  static Path calculatePath(points) {
+    final path = Path();
+    path.moveTo(points.first.dx, points.first.dy);
+
+    for (int i = 1; i < points.length - 1; ++i) {
+      final p0 = points[i];
+      final p1 = points[i + 1];
+      path.quadraticBezierTo(
+        p0.dx,
+        p0.dy,
+        (p0.dx + p1.dx) / 2,
+        (p0.dy + p1.dy) / 2,
+      );
+    }
+
+    return path;
+  }
+
+  List<Rect> calculateButtonPositions() {
+    Rect pathRect = path.getBounds();
+
+    double centerX = pathRect.center.dx;
+    double centerY = pathRect.center.dy;
+
+    Rect rect = Rect.fromCenter(
+        center: Offset(centerX, centerY), width: 120, height: 100);
+
+    Rect resizeButton = Rect.fromPoints(
+        Offset(rect.right, rect.top), Offset(rect.right + 30, rect.top - 30));
+
+    Rect rotateButton = Rect.fromPoints(Offset(centerX + 15, centerY - 100),
+        Offset(centerX - 15, centerY - 130));
+
+    Rect moveButton = Rect.fromCenter(
+        center: Offset(centerX, centerY), width: 30, height: 30);
+
+    return [rect, resizeButton, rotateButton, moveButton];
+  }
+
   factory Sketch.fromDrawingMode(
-      Sketch sketch, DrawingMode drawingMode, bool filled) {
+    Sketch sketch,
+    DrawingMode drawingMode,
+    bool filled,
+  ) {
     return Sketch(
       points: sketch.points,
+      path: calculatePath(sketch.points),
       color: sketch.color,
       size: sketch.size,
       filled: drawingMode == DrawingMode.line ||
@@ -45,6 +92,38 @@ class Sketch {
     );
   }
 
+  factory Sketch.fromPath(
+    Sketch sketch,
+    Path path,
+  ) {
+    return Sketch(
+      points: sketch.points,
+      path: path,
+      color: sketch.color,
+      size: sketch.size,
+      filled: sketch.filled,
+      type: sketch.type,
+    );
+  }
+
+  Offset calculateMove(Offset offset) {
+    Rect pathRect = path.getBounds();
+
+    double centerX = pathRect.center.dx;
+    double centerY = pathRect.center.dy;
+
+    return Offset((offset.dx - centerX), (offset.dy - centerY));
+  }
+
+  double calculateRotationAngle(Offset center, Offset offset) {
+    Offset touchVector = offset - center;
+
+    double angleInRadians = atan2(touchVector.dy, touchVector.dx) -
+        80; // ! i don't understand why -80 works better than -90!
+
+    return angleInRadians;
+  }
+
   Map<String, dynamic> toJson() {
     List<Map> pointsMap = points.map((e) => {'dx': e.dx, 'dy': e.dy}).toList();
     return {
@@ -60,6 +139,7 @@ class Sketch {
     List<Offset> points =
         (json['points'] as List).map((e) => Offset(e['dx'], e['dy'])).toList();
     return Sketch(
+      path: calculatePath(points),
       points: points,
       color: (json['color'] as String).toColor(),
       size: json['size'],
