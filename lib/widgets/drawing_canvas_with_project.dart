@@ -81,6 +81,7 @@ class DrawingCanvas extends HookWidget {
 
         currentSketch.value = Sketch.fromDrawingMode(
           Sketch(
+            path: Path(),
             points: [offset],
             color: selectedColor.value,
             size: strokeSize.value,
@@ -97,6 +98,7 @@ class DrawingCanvas extends HookWidget {
 
         currentSketch.value = Sketch.fromDrawingMode(
             Sketch(
+                path: Path(),
                 points: points,
                 color: selectedColor.value,
                 size: strokeSize.value),
