@@ -45,7 +45,7 @@ class Sketch {
     double centerY = pathRect.center.dy;
 
     Rect rect = Rect.fromCenter(
-        center: Offset(centerX, centerY), width: 120, height: 100);
+        center: Offset(centerX, centerY), width: 200, height: 200);
 
     Rect resizeButton = Rect.fromPoints(
         Offset(rect.right, rect.top), Offset(rect.right + 30, rect.top - 30));
@@ -118,9 +118,7 @@ class Sketch {
   double calculateRotationAngle(Offset center, Offset offset) {
     Offset touchVector = offset - center;
 
-    double angleInRadians = atan2(touchVector.dy, touchVector.dx) -
-        80; // ! i don't understand why -80 works better than -90!
-
+    double angleInRadians = (atan2(touchVector.dy, touchVector.dx) - (pi / 2));
     return angleInRadians;
   }
 
