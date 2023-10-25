@@ -95,12 +95,13 @@ class Sketch {
   factory Sketch.fromPath(
     Sketch sketch,
     Path path,
+    double size,
   ) {
     return Sketch(
       points: sketch.points,
       path: path,
       color: sketch.color,
-      size: sketch.size,
+      size: size,
       filled: sketch.filled,
       type: sketch.type,
     );
@@ -118,8 +119,24 @@ class Sketch {
   double calculateRotationAngle(Offset center, Offset offset) {
     Offset touchVector = offset - center;
 
-    double angleInRadians = (atan2(touchVector.dy, touchVector.dx) - (pi / 2));
+    double angleInRadians = (atan2(touchVector.dy, touchVector.dx) + (pi / 2));
     return angleInRadians;
+  }
+
+  double calculateResize(Offset center, Offset offset) {
+    double minDistance = 0;
+    double maxDistance = 141.4213562373095;
+    double minScale = 0.3;
+    double maxScale = 1;
+
+    double distance =
+        sqrt(pow(offset.dx - center.dx, 2) + pow(offset.dy - center.dy, 2));
+
+    double scaleFactor = (distance - minDistance) *
+            ((maxScale - minScale) / (maxDistance - minDistance)) +
+        minScale;
+
+    return scaleFactor;
   }
 
   Map<String, dynamic> toJson() {
