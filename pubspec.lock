@@ -493,6 +493,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.0"
+  svg_path_parser:
+    dependency: "direct main"
+    description:
+      name: svg_path_parser
+      sha256: c0864f85efd1024e9f667ddcda10601b1199e3980fb07d63701f9b9a047bdab3
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
   term_glyph:
     dependency: transitive
     description:
