@@ -81,13 +81,16 @@ class DrawingCanvas extends HookWidget {
           buttons = allSketches.value.last.calculateButtonPositions();
         }
 
-        if (buttons.isNotEmpty && buttons[1].contains(offset)) {
+        if (buttons.isNotEmpty &&
+            buttons[1].contains(offset) &&
+            allSketches.value.last.type != SketchType.text) {
           transformSketch.value = allSketches.value.last;
           pointerMode.value = "scale";
         } else if (buttons.isNotEmpty &&
             buttons[2].contains(offset) &&
             allSketches.value.last.type != SketchType.square &&
-            allSketches.value.last.type != SketchType.circle) {
+            allSketches.value.last.type != SketchType.circle &&
+            allSketches.value.last.type != SketchType.text) {
           transformSketch.value = allSketches.value.last;
           pointerMode.value = "rotate";
         } else if (buttons.isNotEmpty && buttons[3].contains(offset)) {
@@ -189,10 +192,6 @@ class DrawingCanvas extends HookWidget {
 
           double newStrokeSize = (transformSketch.value!.size * scaleFactor);
 
-          print(
-            "\n newStrokeSize: $newStrokeSize \n lastSketch.size: ${lastSketch.size} \n scaleFactor: $scaleFactor",
-          );
-
           Sketch updateSketch = Sketch.fromPath(
             lastSketch,
             newPath,
@@ -231,45 +230,95 @@ class SketchPainter extends CustomPainter {
   final List<Sketch> sketches;
   bool displayTransformersControls;
 
-  SketchPainter(
-      {required this.sketches, this.displayTransformersControls = false});
+  SketchPainter({
+    required this.sketches,
+    this.displayTransformersControls = false,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     for (Sketch sketch in sketches) {
-      Path path = sketch.path;
+      if (sketch.type != SketchType.text) {
+        Path path = sketch.path;
 
-      Paint paint = Paint()
-        ..color = sketch.color
-        ..strokeCap = StrokeCap.round;
+        Paint paint = Paint()
+          ..color = sketch.color
+          ..strokeCap = StrokeCap.round;
 
-      if (!sketch.filled) {
-        paint.strokeWidth = sketch.size;
-        paint.style = PaintingStyle.stroke;
-      }
-
-      List<PathMetric> pathMetrics = path.computeMetrics().toList();
-      if (pathMetrics.isNotEmpty) {
-        PathMetric pathMetric = pathMetrics.first;
-
-        dynamic firstPointTangent = pathMetric.getTangentForOffset(0.0);
-        Offset firstPoint = firstPointTangent.position;
-
-        double pathLength = pathMetric.length;
-        dynamic lastPointTangent = pathMetric.getTangentForOffset(pathLength);
-        Offset lastPoint = lastPointTangent.position;
-
-        Rect rect = Rect.fromPoints(firstPoint, lastPoint);
-
-        if (sketch.type == SketchType.scribble) {
-          canvas.drawPath(path, paint);
-        } else if (sketch.type == SketchType.line) {
-          canvas.drawLine(firstPoint, lastPoint, paint);
-        } else if (sketch.type == SketchType.circle) {
-          canvas.drawOval(rect, paint);
-        } else if (sketch.type == SketchType.square) {
-          canvas.drawRect(rect, paint);
+        if (!sketch.filled) {
+          paint.strokeWidth = sketch.size;
+          paint.style = PaintingStyle.stroke;
         }
+
+        List<PathMetric> pathMetrics = path.computeMetrics().toList();
+        if (pathMetrics.isNotEmpty) {
+          PathMetric pathMetric = pathMetrics.first;
+
+          dynamic firstPointTangent = pathMetric.getTangentForOffset(0.0);
+          Offset firstPoint = firstPointTangent.position;
+
+          double pathLength = pathMetric.length;
+          dynamic lastPointTangent = pathMetric.getTangentForOffset(pathLength);
+          Offset lastPoint = lastPointTangent.position;
+
+          Rect rect = Rect.fromPoints(firstPoint, lastPoint);
+
+          if (sketch.type == SketchType.scribble) {
+            canvas.drawPath(path, paint);
+          } else if (sketch.type == SketchType.line) {
+            canvas.drawLine(firstPoint, lastPoint, paint);
+          } else if (sketch.type == SketchType.circle) {
+            canvas.drawOval(rect, paint);
+          } else if (sketch.type == SketchType.square) {
+            canvas.drawRect(rect, paint);
+          }
+        }
+      } else {
+        TextStyle textStyle = const TextStyle(
+          color: Colors.black,
+          fontSize: 30,
+        );
+
+        final textSpan = TextSpan(
+          text: sketch.text,
+          style: textStyle,
+        );
+
+        final textPainter = TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+        );
+
+        textPainter.layout(
+          minWidth: 0,
+          maxWidth: size.width,
+        );
+
+        final offset = sketch.path.getBounds().center -
+            Offset(textPainter.width / 2, textPainter.height / 2);
+
+        Rect backgroundRect = Rect.fromCenter(
+          center: sketch.path.getBounds().center,
+          width: textPainter.width * 1.2,
+          height: textPainter.height * 1.2,
+        );
+
+        RRect roundedBackgroundRect =
+            RRect.fromRectAndRadius(backgroundRect, const Radius.circular(10));
+
+        Paint backgroundPaint = Paint()
+          ..color = sketch.color
+          ..style = PaintingStyle.fill;
+
+        Paint borderPaint = Paint()
+          ..color = Colors.black
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
+
+        canvas.drawRRect(roundedBackgroundRect, backgroundPaint);
+        canvas.drawRRect(roundedBackgroundRect, borderPaint);
+
+        textPainter.paint(canvas, offset);
       }
     }
     if (displayTransformersControls && sketches.isNotEmpty) {
@@ -306,12 +355,15 @@ class SketchPainter extends CustomPainter {
           "M5.2 9l-3 3 3 3M9 5.2l3-3 3 3M15 18.9l-3 3-3-3M18.9 9l3 3-3 3M3.3 12h17.4M12 3.2v17.6");
       moveButtonIconPath = resizeIconPath(moveButtonIconPath, buttons[3], .7);
 
-      canvas.drawOval(buttons[1], buttonPaint);
-      canvas.drawOval(buttons[1], shadowPaint);
-      canvas.drawPath(resizeButtonIconPath, iconPaint);
+      if (sketch.type != SketchType.text) {
+        canvas.drawOval(buttons[1], buttonPaint);
+        canvas.drawOval(buttons[1], shadowPaint);
+        canvas.drawPath(resizeButtonIconPath, iconPaint);
+      }
 
       if (sketch.type != SketchType.circle &&
-          sketch.type != SketchType.square) {
+          sketch.type != SketchType.square &&
+          sketch.type != SketchType.text) {
         canvas.drawOval(buttons[2], buttonPaint);
         canvas.drawOval(buttons[2], shadowPaint);
         canvas.drawPath(rotateButtonIconPath, iconPaint);
@@ -335,8 +387,6 @@ Path resizeIconPath(Path path, Rect buttonRect, double scaleFactor) {
     width: (buttonRect.width * scaleFactor),
     height: (buttonRect.height * scaleFactor),
   );
-
-  print(path.getBounds());
 
   double scaleX = rect.width / path.getBounds().width;
   double scaleY = rect.height / path.getBounds().height;

@@ -28,6 +28,8 @@ class CanvasWithImageAndProject extends HookWidget {
     final eraserSize = useState<double>(30);
     final drawingMode = useState(DrawingMode.pencil);
     final filled = useState<bool>(false);
+    final pointerMode = useState<String>("draw");
+    final transformSketch = useState<Sketch?>(null);
 
     final canvasGlobalKey = GlobalKey();
 
@@ -35,11 +37,13 @@ class CanvasWithImageAndProject extends HookWidget {
     ValueNotifier<List<Sketch>> allSketches = useState([]);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text("Edit your source Image"),
         actions: [
           ElevatedButton(
-              onPressed: () => saveImage(context), child: Icon(Icons.upload)),
+              onPressed: () => saveImage(context),
+              child: const Icon(Icons.upload)),
         ],
       ),
       body: Stack(
@@ -61,6 +65,8 @@ class CanvasWithImageAndProject extends HookWidget {
                 imagePath: imagePath,
                 projectId: projectId,
                 imageKey: imageKey,
+                pointerMode: pointerMode,
+                transformSketch: transformSketch,
               ),
             ),
           ),

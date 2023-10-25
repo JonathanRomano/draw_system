@@ -57,6 +57,7 @@ class CanvasSideBar extends HookWidget {
               SpeedDial(
                   direction: SpeedDialDirection.right,
                   backgroundColor: Colors.blue,
+                  overlayOpacity: 0.4,
                   children: [
                     SpeedDialChild(
                       onTap: () => drawingMode.value = DrawingMode.pencil,
@@ -83,11 +84,6 @@ class CanvasSideBar extends HookWidget {
                         onTap: () => drawingMode.value = DrawingMode.circle,
                         child: const Icon(
                           FontAwesomeIcons.circle,
-                        )),
-                    SpeedDialChild(
-                        onTap: () => drawingMode.value = DrawingMode.eraser,
-                        child: const Icon(
-                          FontAwesomeIcons.eraser,
                         )),
                   ],
                   child: () {
@@ -122,6 +118,15 @@ class CanvasSideBar extends HookWidget {
                 ),
               ),
               const SizedBox(height: 10),
+              FloatingActionButton(
+                heroTag: "addText",
+                onPressed: () => showTextDialog(context),
+                backgroundColor: Colors.blue,
+                child: const Icon(
+                  FontAwesomeIcons.t,
+                ),
+              ),
+              const SizedBox(height: 10),
               ColorPalette(
                 selectedColor: selectedColor,
               ),
@@ -140,7 +145,7 @@ class CanvasSideBar extends HookWidget {
                 ],
               ),
               */
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               FloatingActionButton(
                 heroTag: "undo",
                 onPressed: allSketches.value.isNotEmpty
@@ -148,7 +153,7 @@ class CanvasSideBar extends HookWidget {
                     : null,
                 child: const Icon(Icons.undo),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               ValueListenableBuilder<bool>(
                 valueListenable: undoRedoStack.value._canRedo,
                 builder: (_, canRedo, __) {
@@ -160,7 +165,7 @@ class CanvasSideBar extends HookWidget {
                   );
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
               FloatingActionButton(
                 heroTag: "clear",
                 onPressed: () => undoRedoStack.value.clear(),
@@ -169,6 +174,49 @@ class CanvasSideBar extends HookWidget {
             ],
           )),
     );
+  }
+
+  showTextDialog(BuildContext context) {
+    final TextEditingController textController = TextEditingController();
+    String insertedText = "";
+
+    showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text("Insert text!"),
+            content: SingleChildScrollView(
+              child: Column(
+                children: <Widget>[
+                  TextField(
+                    controller: textController,
+                    decoration: const InputDecoration(
+                      labelText: 'Enter your text',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (text) {
+                      insertedText = text;
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text("Done"),
+                onPressed: () {
+                  if (insertedText.trim().isNotEmpty) {
+                    Sketch sketch = Sketch.fromText(insertedText);
+
+                    allSketches.value = List.from(allSketches.value)
+                      ..add(sketch);
+                  }
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          );
+        });
   }
 
   Future<ui.Image> get _getImage async {

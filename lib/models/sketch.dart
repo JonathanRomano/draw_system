@@ -10,15 +10,16 @@ class Sketch {
   final SketchType type;
   final bool filled;
   final Path path;
+  final String text;
 
-  Sketch({
-    required this.points,
-    required this.path,
-    this.color = Colors.black,
-    this.type = SketchType.scribble,
-    this.filled = true,
-    this.size = 10,
-  });
+  Sketch(
+      {required this.points,
+      required this.path,
+      this.color = Colors.black,
+      this.type = SketchType.scribble,
+      this.filled = true,
+      this.size = 10,
+      this.text = "Not a text"});
 
   static Path calculatePath(points) {
     final path = Path();
@@ -55,6 +56,17 @@ class Sketch {
 
     Rect moveButton = Rect.fromCenter(
         center: Offset(centerX, centerY), width: 30, height: 30);
+
+    if (type == SketchType.text) {
+      //? TODO: implement difetent possitions for text sketches?
+
+      return [
+        rect,
+        resizeButton,
+        rotateButton,
+        moveButton.shift(const Offset(0, 30))
+      ];
+    }
 
     return [rect, resizeButton, rotateButton, moveButton];
   }
@@ -104,6 +116,31 @@ class Sketch {
       size: size,
       filled: sketch.filled,
       type: sketch.type,
+      text: sketch.text,
+    );
+  }
+
+  factory Sketch.fromText(String text) {
+    const TextStyle textStyle = TextStyle(
+      color: Colors.black,
+      fontSize: 30,
+    );
+
+    TextPainter textPainter = TextPainter(
+      text: TextSpan(text: text, style: textStyle),
+      textDirection: TextDirection.ltr,
+    );
+
+    textPainter.layout(minWidth: 0, maxWidth: double.infinity);
+
+    Offset offset = Offset(textPainter.width, textPainter.height);
+
+    return Sketch(
+      points: [offset],
+      path: calculatePath([offset]),
+      type: SketchType.text,
+      text: text,
+      color: Colors.white,
     );
   }
 
@@ -164,7 +201,7 @@ class Sketch {
   }
 }
 
-enum SketchType { scribble, line, square, circle }
+enum SketchType { scribble, line, square, circle, text }
 
 extension SketchTypeX on SketchType {
   toRegularString() => toString().split('.')[1];

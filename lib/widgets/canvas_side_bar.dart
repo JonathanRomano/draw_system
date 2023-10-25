@@ -115,14 +115,14 @@ class CanvasSideBar extends HookWidget {
                   tooltip: 'Circle',
                 ),
                 _IconBox(
-                  iconData: FontAwesomeIcons.eraser,
+                  iconData: Icons.format_color_text_rounded,
                   selected: drawingMode.value == DrawingMode.eraser,
-                  onTap: () => drawingMode.value = DrawingMode.eraser,
+                  onTap: () => showTextDialog(context),
                   tooltip: 'Eraser',
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
             Row(
               children: [
                 const Text(
@@ -137,7 +137,7 @@ class CanvasSideBar extends HookWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 20),
             const Text(
               'Colors',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -212,6 +212,49 @@ class CanvasSideBar extends HookWidget {
         ),
       ),
     );
+  }
+
+  showTextDialog(BuildContext context) {
+    final TextEditingController textController = TextEditingController();
+    String insertedText = "";
+
+    showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text("Insert text!"),
+            content: SingleChildScrollView(
+              child: Column(
+                children: <Widget>[
+                  TextField(
+                    controller: textController,
+                    decoration: const InputDecoration(
+                      labelText: 'Enter your text',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (text) {
+                      insertedText = text;
+                    },
+                  ),
+                  TextButton(
+                      onPressed: () => print(insertedText),
+                      child: const Text("Print text"))
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text("Done"),
+                onPressed: () {
+                  Sketch sketch = Sketch.fromText(insertedText);
+
+                  allSketches.value = List.from(allSketches.value)..add(sketch);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          );
+        });
   }
 
   Future<ui.Image> get _getImage async {
