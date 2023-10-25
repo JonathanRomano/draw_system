@@ -17,7 +17,7 @@ class DrawingPage extends HookWidget {
     final drawingMode = useState(DrawingMode.pencil);
     final filled = useState<bool>(false);
     final pointerMode = useState<String>("draw");
-    final rotatePath = useState<Path>(Path());
+    final transformSketch = useState<Sketch?>(null);
 
     final canvasGlobalKey = GlobalKey();
 
@@ -48,7 +48,7 @@ class DrawingPage extends HookWidget {
               canvasGlobalKey: canvasGlobalKey,
               filled: filled,
               pointerMode: pointerMode,
-              rotatePath: rotatePath,
+              transformSketch: transformSketch,
             ),
           ),
           Positioned(

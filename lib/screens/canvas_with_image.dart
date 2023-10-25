@@ -20,6 +20,8 @@ class CanvasWithImage extends HookWidget {
     final eraserSize = useState<double>(30);
     final drawingMode = useState(DrawingMode.pencil);
     final filled = useState<bool>(false);
+    final pointerMode = useState<String>("draw");
+    final transformSketch = useState<Sketch?>(null);
 
     final canvasGlobalKey = GlobalKey();
 
@@ -65,6 +67,8 @@ class CanvasWithImage extends HookWidget {
               allSketches: allSketches,
               canvasGlobalKey: canvasGlobalKey,
               filled: filled,
+              pointerMode: pointerMode,
+              transformSketch: transformSketch,
             ),
           ),
           Positioned(

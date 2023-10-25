@@ -4,6 +4,8 @@ import "package:flutter/material.dart";
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:draw_system/models/drawing_mode.dart';
 import 'package:draw_system/models/sketch.dart';
+import 'dart:typed_data';
+import 'package:svg_path_parser/svg_path_parser.dart';
 
 class DrawingCanvas extends HookWidget {
   final double height;
@@ -18,7 +20,7 @@ class DrawingCanvas extends HookWidget {
   final GlobalKey canvasGlobalKey;
   final ValueNotifier<bool> filled;
   final ValueNotifier<String> pointerMode;
-  final ValueNotifier<Path> rotatePath;
+  final ValueNotifier<Sketch?> transformSketch;
 
   const DrawingCanvas({
     Key? key,
@@ -34,7 +36,7 @@ class DrawingCanvas extends HookWidget {
     required this.canvasGlobalKey,
     required this.filled,
     required this.pointerMode,
-    required this.rotatePath,
+    required this.transformSketch,
   }) : super(key: key);
 
   @override
@@ -55,8 +57,9 @@ class DrawingCanvas extends HookWidget {
         child: CustomPaint(
           painter: SketchPainter(
             sketches: allSketches.value,
-            displayTransformersControls:
-                allSketches.value.isNotEmpty && currentSketch.value == null,
+            displayTransformersControls: allSketches.value.isNotEmpty &&
+                currentSketch.value == null &&
+                pointerMode.value == "draw",
           ),
         ),
       ),
@@ -79,10 +82,13 @@ class DrawingCanvas extends HookWidget {
         }
 
         if (buttons.isNotEmpty && buttons[1].contains(offset)) {
-          print("scaleButton");
+          transformSketch.value = allSketches.value.last;
           pointerMode.value = "scale";
-        } else if (buttons.isNotEmpty && buttons[2].contains(offset)) {
-          rotatePath.value = allSketches.value.last.path;
+        } else if (buttons.isNotEmpty &&
+            buttons[2].contains(offset) &&
+            allSketches.value.last.type != SketchType.square &&
+            allSketches.value.last.type != SketchType.circle) {
+          transformSketch.value = allSketches.value.last;
           pointerMode.value = "rotate";
         } else if (buttons.isNotEmpty && buttons[3].contains(offset)) {
           pointerMode.value = "move";
@@ -110,10 +116,11 @@ class DrawingCanvas extends HookWidget {
 
           currentSketch.value = Sketch.fromDrawingMode(
             Sketch(
-                path: Path(),
-                points: points,
-                color: selectedColor.value,
-                size: strokeSize.value),
+              path: Path(),
+              points: points,
+              color: selectedColor.value,
+              size: strokeSize.value,
+            ),
             drawingMode.value,
             filled.value,
           );
@@ -123,13 +130,14 @@ class DrawingCanvas extends HookWidget {
 
           Path translatedPath = lastSketch.path.shift(moveOffset);
 
-          Sketch updateSketch = Sketch.fromPath(lastSketch, translatedPath);
+          Sketch updateSketch =
+              Sketch.fromPath(lastSketch, translatedPath, lastSketch.size);
 
           allSketches.value = List.from(allSketches.value)..add(updateSketch);
         } else if (pointerMode.value == "rotate") {
           Sketch lastSketch = allSketches.value.removeLast();
 
-          Offset center = rotatePath.value.getBounds().center;
+          Offset center = transformSketch.value!.path.getBounds().center;
 
           double rotationAngle =
               lastSketch.calculateRotationAngle(center, offset);
@@ -139,13 +147,59 @@ class DrawingCanvas extends HookWidget {
           rotationMatrix.rotateZ(rotationAngle);
           rotationMatrix.translate(-center.dx, -center.dy);
 
-          Path newPath = rotatePath.value.transform(rotationMatrix.storage);
+          Path newPath =
+              transformSketch.value!.path.transform(rotationMatrix.storage);
 
-          Sketch updateSketch = Sketch.fromPath(lastSketch, newPath);
+          Sketch updateSketch =
+              Sketch.fromPath(lastSketch, newPath, lastSketch.size);
 
           allSketches.value = List.from(allSketches.value)..add(updateSketch);
         } else if (pointerMode.value == "scale") {
-          print("handle resize");
+          Sketch lastSketch = allSketches.value.removeLast();
+
+          Offset center = transformSketch.value!.path.getBounds().center;
+
+          double scaleFactor = lastSketch.calculateResize(center, offset);
+
+          List<double> matrixValues = <double>[
+            scaleFactor,
+            0,
+            0,
+            0,
+            0,
+            scaleFactor,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            1,
+          ];
+
+          Path newPath = transformSketch.value!.path
+              .transform(Float64List.fromList(matrixValues));
+
+          Offset newCenter = newPath.getBounds().center;
+
+          newPath = newPath.shift(center - newCenter);
+
+          double newStrokeSize = (transformSketch.value!.size * scaleFactor);
+
+          print(
+            "\n newStrokeSize: $newStrokeSize \n lastSketch.size: ${lastSketch.size} \n scaleFactor: $scaleFactor",
+          );
+
+          Sketch updateSketch = Sketch.fromPath(
+            lastSketch,
+            newPath,
+            newStrokeSize,
+          );
+
+          allSketches.value = List.from(allSketches.value)..add(updateSketch);
         }
       },
       onPointerUp: (details) {
@@ -153,9 +207,10 @@ class DrawingCanvas extends HookWidget {
           allSketches.value = List<Sketch>.from(allSketches.value)
             ..add(currentSketch.value!);
           currentSketch.value = null;
-        } else if (pointerMode.value == "rotate") {
-          rotatePath.value = Path();
         }
+
+        transformSketch.value = null;
+        pointerMode.value = "draw";
       },
       child: RepaintBoundary(
         child: SizedBox(
@@ -217,21 +272,54 @@ class SketchPainter extends CustomPainter {
         }
       }
     }
-
     if (displayTransformersControls && sketches.isNotEmpty) {
       Sketch sketch = sketches.last;
 
-      Paint paint = Paint()
-        ..color = Colors.black
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
-
       List<Rect> buttons = sketch.calculateButtonPositions();
 
-      canvas.drawRect(buttons[0], paint);
-      canvas.drawRect(buttons[1], paint);
-      canvas.drawRect(buttons[2], paint);
-      canvas.drawRect(buttons[3], paint);
+      Paint buttonPaint = Paint()
+        ..color = Colors.white
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.fill;
+
+      Paint shadowPaint = Paint()
+        ..color = Colors.grey.withOpacity(0.5)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+
+      Paint iconPaint = Paint()
+        ..color = Colors.black
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke;
+
+      Path resizeButtonIconPath =
+          parseSvgPath("M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1");
+      resizeButtonIconPath =
+          resizeIconPath(resizeButtonIconPath, buttons[1], .55);
+
+      Path rotateButtonIconPath = parseSvgPath(
+        "M941.728 137.152C941.728 122.304 932.576 109.152 919.456 103.424 905.728 97.728 889.728 100.576 879.456 111.424L805.152 185.152C724.576 109.152 615.456 64 502.88 64 261.152 64 64 261.152 64 502.88 64 744.576 261.152 941.728 502.88 941.728 633.728 941.728 757.152 884 840.576 783.424 846.304 776 846.304 765.152 839.456 758.88L761.152 680C757.152 676.576 752 674.88 746.88 674.88 741.728 675.424 736.576 677.728 733.728 681.728 677.728 754.304 593.728 795.424 502.88 795.424 341.728 795.424 210.304 664 210.304 502.88 210.304 341.728 341.728 210.304 502.88 210.304 577.728 210.304 648.576 238.88 702.304 288.576L623.456 367.424C612.576 377.728 609.728 393.728 615.456 406.88 621.152 420.576 634.304 429.728 649.152 429.728L905.152 429.728C925.152 429.728 941.728 413.152 941.728 393.152L941.728 137.152Z",
+      );
+      rotateButtonIconPath =
+          resizeIconPath(rotateButtonIconPath, buttons[2], .65);
+
+      Path moveButtonIconPath = parseSvgPath(
+          "M5.2 9l-3 3 3 3M9 5.2l3-3 3 3M15 18.9l-3 3-3-3M18.9 9l3 3-3 3M3.3 12h17.4M12 3.2v17.6");
+      moveButtonIconPath = resizeIconPath(moveButtonIconPath, buttons[3], .7);
+
+      canvas.drawOval(buttons[1], buttonPaint);
+      canvas.drawOval(buttons[1], shadowPaint);
+      canvas.drawPath(resizeButtonIconPath, iconPaint);
+
+      if (sketch.type != SketchType.circle &&
+          sketch.type != SketchType.square) {
+        canvas.drawOval(buttons[2], buttonPaint);
+        canvas.drawOval(buttons[2], shadowPaint);
+        canvas.drawPath(rotateButtonIconPath, iconPaint);
+      }
+
+      canvas.drawOval(buttons[3], buttonPaint);
+      canvas.drawOval(buttons[3], shadowPaint);
+      canvas.drawPath(moveButtonIconPath, iconPaint);
     }
   }
 
@@ -239,4 +327,26 @@ class SketchPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return true;
   }
+}
+
+Path resizeIconPath(Path path, Rect buttonRect, double scaleFactor) {
+  Rect rect = Rect.fromCenter(
+    center: buttonRect.center,
+    width: (buttonRect.width * scaleFactor),
+    height: (buttonRect.height * scaleFactor),
+  );
+
+  print(path.getBounds());
+
+  double scaleX = rect.width / path.getBounds().width;
+  double scaleY = rect.height / path.getBounds().height;
+
+  Path resizedPath =
+      path.transform(Matrix4.diagonal3Values(scaleX, scaleY, 1).storage);
+
+  double offsetX = rect.left - resizedPath.getBounds().left;
+  double offsetY = rect.top - resizedPath.getBounds().top;
+  resizedPath = resizedPath.shift(Offset(offsetX, offsetY));
+
+  return resizedPath;
 }
