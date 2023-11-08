@@ -1,12 +1,12 @@
 import 'dart:io';
 
+import 'package:draw_system/models/selection.dart';
 import "package:flutter/material.dart";
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:draw_system/models/drawing_mode.dart';
 import 'package:draw_system/models/sketch.dart';
 import 'dart:ui';
 import 'dart:typed_data';
-import 'package:svg_path_parser/svg_path_parser.dart';
 
 class DrawingCanvas extends HookWidget {
   final ValueNotifier<Color> selectedColor;
@@ -14,7 +14,9 @@ class DrawingCanvas extends HookWidget {
   final ValueNotifier<double> eraserSize;
   final ValueNotifier<DrawingMode> drawingMode;
   final ValueNotifier<Sketch?> currentSketch;
+  final ValueNotifier<Selection?> currentSelection;
   final ValueNotifier<List<Sketch>> allSketches;
+  final ValueNotifier<List<Sketch>> selectedSketches;
   final GlobalKey canvasGlobalKey;
   final ValueNotifier<bool> filled;
   final String imagePath;
@@ -24,7 +26,6 @@ class DrawingCanvas extends HookWidget {
   final int projectId;
   final ValueNotifier<String> pointerMode;
   final ValueNotifier<Sketch?> transformSketch;
-
   const DrawingCanvas({
     Key? key,
     required this.selectedColor,
@@ -33,6 +34,7 @@ class DrawingCanvas extends HookWidget {
     required this.drawingMode,
     required this.currentSketch,
     required this.allSketches,
+    required this.selectedSketches,
     required this.canvasGlobalKey,
     required this.filled,
     required this.imagePath,
@@ -42,6 +44,7 @@ class DrawingCanvas extends HookWidget {
     this.imageHeight,
     required this.pointerMode,
     required this.transformSketch,
+    required this.currentSelection,
   }) : super(key: key);
 
   @override
@@ -98,7 +101,7 @@ class DrawingCanvas extends HookWidget {
       child: SizedBox(
         child: CustomPaint(
           painter: SketchPainter(
-            sketches: allSketches.value,
+            sketches: [...allSketches.value, ...selectedSketches.value],
           ),
         ),
       ),
@@ -124,32 +127,15 @@ class DrawingCanvas extends HookWidget {
     BuildContext context,
     ValueNotifier<String> pointerMode,
   ) {
+    ValueNotifier<String> magicPenMode = useState("select");
+    ValueNotifier<Offset?> referencePoint = useState(null);
+
     return Listener(
       onPointerDown: (details) {
         final box = context.findRenderObject() as RenderBox;
         final offset = box.globalToLocal(details.position);
 
-        List<Rect> buttons = [];
-
-        if (allSketches.value.isNotEmpty) {
-          buttons = allSketches.value.last.calculateButtonPositions();
-        }
-
-        if (buttons.isNotEmpty &&
-            buttons[1].contains(offset) &&
-            allSketches.value.last.type != SketchType.text) {
-          transformSketch.value = allSketches.value.last;
-          pointerMode.value = "scale";
-        } else if (buttons.isNotEmpty &&
-            buttons[2].contains(offset) &&
-            allSketches.value.last.type != SketchType.square &&
-            allSketches.value.last.type != SketchType.circle &&
-            allSketches.value.last.type != SketchType.text) {
-          transformSketch.value = allSketches.value.last;
-          pointerMode.value = "rotate";
-        } else if (buttons.isNotEmpty && buttons[3].contains(offset)) {
-          pointerMode.value = "move";
-        } else {
+        if (drawingMode.value != DrawingMode.magicPen) {
           pointerMode.value = "draw";
           currentSketch.value = Sketch.fromDrawingMode(
             Sketch(
@@ -161,13 +147,33 @@ class DrawingCanvas extends HookWidget {
             drawingMode.value,
             filled.value,
           );
+        } else if (drawingMode.value == DrawingMode.magicPen &&
+            selectedSketches.value.isEmpty) {
+          currentSelection.value = Selection.fromPoints([offset]);
+          pointerMode.value = "magicPen";
+        } else if (drawingMode.value == DrawingMode.magicPen &&
+            selectedSketches.value.isNotEmpty) {
+          if (currentSelection.value!.path.contains(offset)) {
+            magicPenMode.value = "move";
+            referencePoint.value =
+                offset - currentSelection.value!.path.getBounds().center;
+          } else {
+            allSketches.value = List<Sketch>.from([
+              ...allSketches.value,
+              ...selectedSketches.value,
+            ]);
+
+            currentSelection.value = Selection.fromPoints([offset]);
+            selectedSketches.value = [];
+          }
         }
       },
       onPointerMove: (details) {
         final box = context.findRenderObject() as RenderBox;
         final offset = box.globalToLocal(details.position);
 
-        if (pointerMode.value == "draw") {
+        if (pointerMode.value == "draw" &&
+            drawingMode.value == DrawingMode.pencil) {
           final points = List<Offset>.from(currentSketch.value?.points ?? [])
             ..add(offset);
 
@@ -181,6 +187,40 @@ class DrawingCanvas extends HookWidget {
             drawingMode.value,
             filled.value,
           );
+        } else if (pointerMode.value == "draw" &&
+            drawingMode.value == DrawingMode.line &&
+            currentSketch.value != null) {
+          Path path = Path();
+          path.moveTo(currentSketch.value!.points.first.dx,
+              currentSketch.value!.points.first.dy);
+          path.lineTo(offset.dx, offset.dy);
+
+          currentSketch.value = Sketch.fromPath(
+              currentSketch.value!, path, currentSketch.value!.size);
+        } else if (pointerMode.value == "draw" &&
+            drawingMode.value == DrawingMode.square &&
+            currentSketch.value != null) {
+          Path path = Path();
+
+          path.addRect(Rect.fromPoints(
+              Offset(currentSketch.value!.points.first.dx,
+                  currentSketch.value!.points.first.dy),
+              Offset(offset.dx, offset.dy)));
+
+          currentSketch.value = Sketch.fromPath(
+              currentSketch.value!, path, currentSketch.value!.size);
+        } else if (pointerMode.value == "draw" &&
+            drawingMode.value == DrawingMode.circle &&
+            currentSketch.value != null) {
+          Path path = Path();
+
+          path.addOval(Rect.fromPoints(
+              Offset(currentSketch.value!.points.first.dx,
+                  currentSketch.value!.points.first.dy),
+              Offset(offset.dx, offset.dy)));
+
+          currentSketch.value = Sketch.fromPath(
+              currentSketch.value!, path, currentSketch.value!.size);
         } else if (pointerMode.value == "move") {
           Sketch lastSketch = allSketches.value.removeLast();
           Offset moveOffset = lastSketch.calculateMove(offset);
@@ -253,6 +293,37 @@ class DrawingCanvas extends HookWidget {
           );
 
           allSketches.value = List.from(allSketches.value)..add(updateSketch);
+        } else if (pointerMode.value == "magicPen" &&
+            currentSelection.value != null &&
+            selectedSketches.value.isEmpty) {
+          final points = List<Offset>.from(currentSelection.value?.points ?? [])
+            ..add(offset);
+
+          currentSelection.value = Selection.fromPoints(points);
+        } else if (pointerMode.value == "magicPen" &&
+            currentSelection.value != null &&
+            selectedSketches.value.isNotEmpty) {
+          if (magicPenMode.value == "move") {
+            Offset movementOffset = currentSelection.value!
+                .calculateMove(offset, referencePoint.value!);
+
+            List<Sketch> updatedSelectedIcons = [];
+            for (Sketch sketch in selectedSketches.value) {
+              updatedSelectedIcons.add(Sketch.fromPath(
+                sketch,
+                sketch.path.shift(movementOffset),
+                sketch.size,
+              ));
+            }
+
+            selectedSketches.value = updatedSelectedIcons;
+
+            Path newPath = currentSelection.value!.path.shift(movementOffset);
+            Selection updatedSelection = Selection(
+                points: currentSelection.value!.points, path: newPath);
+
+            currentSelection.value = updatedSelection;
+          }
         }
       },
       onPointerUp: (details) {
@@ -261,23 +332,71 @@ class DrawingCanvas extends HookWidget {
             ..add(currentSketch.value!);
           currentSketch.value = null;
         }
+        if (pointerMode.value != "magicPen") {
+          transformSketch.value = null;
+          pointerMode.value = "draw";
+        }
+        if (pointerMode.value == "magicPen" && selectedSketches.value.isEmpty) {
+          Path path = currentSelection.value!.path;
+          path.close();
 
-        transformSketch.value = null;
-        pointerMode.value = "draw";
+          currentSelection.value = Selection(
+            points: currentSelection.value!.points,
+            path: path,
+          );
+
+          selectedSketches.value = getSelectedSketches(allSketches, path);
+
+          if (selectedSketches.value.isEmpty) {
+            currentSelection.value = null;
+          } else {
+            allSketches.value.removeWhere(
+                (sketch) => selectedSketches.value.contains(sketch));
+          }
+        }
       },
       child: RepaintBoundary(
         child: SizedBox(
           child: CustomPaint(
             painter: ControllersPainter(
               sketches: allSketches.value,
-              displayTransformersControls: allSketches.value.isNotEmpty &&
-                  currentSketch.value == null &&
-                  pointerMode.value == "draw",
+              displayTransformersControls:
+                  allSketches.value.isNotEmpty && currentSketch.value == null,
+              currentSelection: currentSelection,
+              pointerMode: pointerMode,
+              drawingMode: drawingMode.value,
             ),
           ),
         ),
       ),
     );
+  }
+
+  List<Sketch> getSelectedSketches(
+    ValueNotifier<List<Sketch>> allSketches,
+    Path selectionPath,
+  ) {
+    List<Sketch> selectedSketches = [];
+
+    for (Sketch sketch in allSketches.value) {
+      Path path = sketch.path;
+
+      PathMetrics metrics = path.computeMetrics();
+
+      for (PathMetric metric in metrics) {
+        for (double i = 0; i < metric.length; i += 1) {
+          Tangent? tangent = metric.getTangentForOffset(i);
+          if (tangent != null) {
+            if (selectionPath.contains(tangent.position)) {
+              selectedSketches.add(sketch);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return selectedSketches;
   }
 }
 
@@ -305,26 +424,7 @@ class SketchPainter extends CustomPainter {
 
         List<PathMetric> pathMetrics = path.computeMetrics().toList();
         if (pathMetrics.isNotEmpty) {
-          PathMetric pathMetric = pathMetrics.first;
-
-          dynamic firstPointTangent = pathMetric.getTangentForOffset(0.0);
-          Offset firstPoint = firstPointTangent.position;
-
-          double pathLength = pathMetric.length;
-          dynamic lastPointTangent = pathMetric.getTangentForOffset(pathLength);
-          Offset lastPoint = lastPointTangent.position;
-
-          Rect rect = Rect.fromPoints(firstPoint, lastPoint);
-
-          if (sketch.type == SketchType.scribble) {
-            canvas.drawPath(path, paint);
-          } else if (sketch.type == SketchType.line) {
-            canvas.drawLine(firstPoint, lastPoint, paint);
-          } else if (sketch.type == SketchType.circle) {
-            canvas.drawOval(rect, paint);
-          } else if (sketch.type == SketchType.square) {
-            canvas.drawRect(rect, paint);
-          }
+          canvas.drawPath(path, paint);
         }
       } else {
         TextStyle textStyle = const TextStyle(
@@ -404,66 +504,32 @@ Path resizeIconPath(Path path, Rect buttonRect, double scaleFactor) {
 
 class ControllersPainter extends CustomPainter {
   final List<Sketch> sketches;
+  final ValueNotifier<Selection?> currentSelection;
+  final ValueNotifier<String> pointerMode;
+  final DrawingMode drawingMode;
   bool displayTransformersControls;
 
   ControllersPainter({
     required this.sketches,
+    required this.currentSelection,
+    required this.pointerMode,
+    required this.drawingMode,
     this.displayTransformersControls = false,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (displayTransformersControls && sketches.isNotEmpty) {
-      Sketch sketch = sketches.last;
-
-      List<Rect> buttons = sketch.calculateButtonPositions();
-
-      Paint buttonPaint = Paint()
+    if (currentSelection.value != null && drawingMode == DrawingMode.magicPen) {
+      Paint selectionPaint = Paint()
         ..color = Colors.white
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.fill;
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round;
 
-      Paint shadowPaint = Paint()
-        ..color = Colors.grey.withOpacity(0.5)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-
-      Paint iconPaint = Paint()
-        ..color = Colors.black
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke;
-
-      Path resizeButtonIconPath =
-          parseSvgPath("M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1");
-      resizeButtonIconPath =
-          resizeIconPath(resizeButtonIconPath, buttons[1], .55);
-
-      Path rotateButtonIconPath = parseSvgPath(
-        "M941.728 137.152C941.728 122.304 932.576 109.152 919.456 103.424 905.728 97.728 889.728 100.576 879.456 111.424L805.152 185.152C724.576 109.152 615.456 64 502.88 64 261.152 64 64 261.152 64 502.88 64 744.576 261.152 941.728 502.88 941.728 633.728 941.728 757.152 884 840.576 783.424 846.304 776 846.304 765.152 839.456 758.88L761.152 680C757.152 676.576 752 674.88 746.88 674.88 741.728 675.424 736.576 677.728 733.728 681.728 677.728 754.304 593.728 795.424 502.88 795.424 341.728 795.424 210.304 664 210.304 502.88 210.304 341.728 341.728 210.304 502.88 210.304 577.728 210.304 648.576 238.88 702.304 288.576L623.456 367.424C612.576 377.728 609.728 393.728 615.456 406.88 621.152 420.576 634.304 429.728 649.152 429.728L905.152 429.728C925.152 429.728 941.728 413.152 941.728 393.152L941.728 137.152Z",
+      canvas.drawPath(
+        getDashedPath(currentSelection.value!.path),
+        selectionPaint,
       );
-      rotateButtonIconPath =
-          resizeIconPath(rotateButtonIconPath, buttons[2], .65);
-
-      Path moveButtonIconPath = parseSvgPath(
-          "M5.2 9l-3 3 3 3M9 5.2l3-3 3 3M15 18.9l-3 3-3-3M18.9 9l3 3-3 3M3.3 12h17.4M12 3.2v17.6");
-      moveButtonIconPath = resizeIconPath(moveButtonIconPath, buttons[3], .7);
-
-      if (sketch.type != SketchType.text) {
-        canvas.drawOval(buttons[1], buttonPaint);
-        canvas.drawOval(buttons[1], shadowPaint);
-        canvas.drawPath(resizeButtonIconPath, iconPaint);
-      }
-
-      if (sketch.type != SketchType.circle &&
-          sketch.type != SketchType.square &&
-          sketch.type != SketchType.text) {
-        canvas.drawOval(buttons[2], buttonPaint);
-        canvas.drawOval(buttons[2], shadowPaint);
-        canvas.drawPath(rotateButtonIconPath, iconPaint);
-      }
-
-      canvas.drawOval(buttons[3], buttonPaint);
-      canvas.drawOval(buttons[3], shadowPaint);
-      canvas.drawPath(moveButtonIconPath, iconPaint);
     }
   }
 
@@ -471,4 +537,30 @@ class ControllersPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return true;
   }
+}
+
+Path getDashedPath(Path originalPath,
+    {double dashLength = 10, double dashSpace = 10}) {
+  Path dashedPath = Path();
+  PathMetrics metrics = originalPath.computeMetrics();
+
+  for (var metric in metrics) {
+    double distance = 0.0;
+    while (distance < metric.length) {
+      double length = dashLength;
+      double remainingLength = metric.length - distance;
+      if (length > remainingLength) {
+        length = remainingLength;
+      }
+      dashedPath.addPath(
+          metric.extractPath(distance, distance + length), Offset.zero);
+      distance += length;
+
+      if (distance < metric.length) {
+        distance += dashSpace;
+      }
+    }
+  }
+
+  return dashedPath;
 }

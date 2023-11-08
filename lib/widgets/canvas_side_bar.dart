@@ -246,7 +246,7 @@ class CanvasSideBar extends HookWidget {
               TextButton(
                 child: const Text("Done"),
                 onPressed: () {
-                  Sketch sketch = Sketch.fromText(insertedText);
+                  Sketch sketch = Sketch.fromText(insertedText, Colors.white);
 
                   allSketches.value = List.from(allSketches.value)..add(sketch);
                   Navigator.pop(context);

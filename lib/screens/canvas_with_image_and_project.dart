@@ -1,3 +1,4 @@
+import 'package:draw_system/models/selection.dart';
 import 'package:flutter/material.dart';
 
 import 'package:draw_system/widgets/drawing_canvas_with_project.dart';
@@ -34,7 +35,9 @@ class CanvasWithImageAndProject extends HookWidget {
     final canvasGlobalKey = GlobalKey();
 
     ValueNotifier<Sketch?> currentSketch = useState(null);
+    ValueNotifier<Selection?> currentSelection = useState(null);
     ValueNotifier<List<Sketch>> allSketches = useState([]);
+    ValueNotifier<List<Sketch>> selectedSketches = useState([]);
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -60,6 +63,7 @@ class CanvasWithImageAndProject extends HookWidget {
                 eraserSize: eraserSize,
                 currentSketch: currentSketch,
                 allSketches: allSketches,
+                selectedSketches: selectedSketches,
                 canvasGlobalKey: canvasGlobalKey,
                 filled: filled,
                 imagePath: imagePath,
@@ -67,6 +71,7 @@ class CanvasWithImageAndProject extends HookWidget {
                 imageKey: imageKey,
                 pointerMode: pointerMode,
                 transformSketch: transformSketch,
+                currentSelection: currentSelection,
               ),
             ),
           ),
@@ -79,6 +84,8 @@ class CanvasWithImageAndProject extends HookWidget {
               currentSketch: currentSketch,
               allSketches: allSketches,
               canvasGlobalKey: canvasGlobalKey,
+              selectedSketches: selectedSketches,
+              currentSelection: currentSelection,
               filled: filled,
             ),
           ),

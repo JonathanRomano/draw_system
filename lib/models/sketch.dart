@@ -12,28 +12,35 @@ class Sketch {
   final Path path;
   final String text;
 
-  Sketch(
-      {required this.points,
-      required this.path,
-      this.color = Colors.black,
-      this.type = SketchType.scribble,
-      this.filled = true,
-      this.size = 10,
-      this.text = "Not a text"});
+  Sketch({
+    required this.points,
+    required this.path,
+    this.color = Colors.black,
+    this.type = SketchType.scribble,
+    this.filled = true,
+    this.size = 10,
+    this.text = "Not a text",
+  });
 
   static Path calculatePath(points) {
     final path = Path();
-    path.moveTo(points.first.dx, points.first.dy);
 
-    for (int i = 1; i < points.length - 1; ++i) {
-      final p0 = points[i];
-      final p1 = points[i + 1];
-      path.quadraticBezierTo(
-        p0.dx,
-        p0.dy,
-        (p0.dx + p1.dx) / 2,
-        (p0.dy + p1.dy) / 2,
-      );
+    if (points.length == 1) {
+      path.moveTo(points[0].dx, points[0].dy);
+      path.lineTo(points[0].dx + 0.2, points[0].dy - 0.2);
+    } else {
+      path.moveTo(points.first.dx, points.first.dy);
+
+      for (int i = 1; i < points.length - 1; ++i) {
+        final p0 = points[i];
+        final p1 = points[i + 1];
+        path.quadraticBezierTo(
+          p0.dx,
+          p0.dy,
+          (p0.dx + p1.dx) / 2,
+          (p0.dy + p1.dy) / 2,
+        );
+      }
     }
 
     return path;
@@ -64,7 +71,7 @@ class Sketch {
         rect,
         resizeButton,
         rotateButton,
-        moveButton.shift(const Offset(0, 30))
+        moveButton.shift(const Offset(0, 30)),
       ];
     }
 
@@ -120,7 +127,7 @@ class Sketch {
     );
   }
 
-  factory Sketch.fromText(String text) {
+  factory Sketch.fromText(String text, Color backgroundColor) {
     const TextStyle textStyle = TextStyle(
       color: Colors.black,
       fontSize: 30,
@@ -140,7 +147,7 @@ class Sketch {
       path: calculatePath([offset]),
       type: SketchType.text,
       text: text,
-      color: Colors.white,
+      color: backgroundColor,
     );
   }
 

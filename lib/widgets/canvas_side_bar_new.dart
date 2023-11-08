@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:draw_system/models/selection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Image;
@@ -24,7 +25,9 @@ class CanvasSideBar extends HookWidget {
   final ValueNotifier<double> eraserSize;
   final ValueNotifier<DrawingMode> drawingMode;
   final ValueNotifier<Sketch?> currentSketch;
+  final ValueNotifier<Selection?> currentSelection;
   final ValueNotifier<List<Sketch>> allSketches;
+  final ValueNotifier<List<Sketch>> selectedSketches;
   final GlobalKey canvasGlobalKey;
   final ValueNotifier<bool> filled;
 
@@ -36,8 +39,10 @@ class CanvasSideBar extends HookWidget {
     required this.drawingMode,
     required this.currentSketch,
     required this.allSketches,
+    required this.selectedSketches,
     required this.canvasGlobalKey,
     required this.filled,
+    required this.currentSelection,
   }) : super(key: key);
 
   @override
@@ -60,13 +65,19 @@ class CanvasSideBar extends HookWidget {
                   overlayOpacity: 0.4,
                   children: [
                     SpeedDialChild(
-                      onTap: () => drawingMode.value = DrawingMode.pencil,
+                      onTap: () {
+                        drawingMode.value = DrawingMode.pencil;
+                        closeMagicPen();
+                      },
                       child: const Icon(
                         FontAwesomeIcons.pencil,
                       ),
                     ),
                     SpeedDialChild(
-                      onTap: () => drawingMode.value = DrawingMode.line,
+                      onTap: () {
+                        drawingMode.value = DrawingMode.line;
+                        closeMagicPen();
+                      },
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -76,14 +87,25 @@ class CanvasSideBar extends HookWidget {
                       ),
                     ),
                     SpeedDialChild(
-                        onTap: () => drawingMode.value = DrawingMode.square,
+                        onTap: () {
+                          drawingMode.value = DrawingMode.square;
+                          closeMagicPen();
+                        },
                         child: const Icon(
                           FontAwesomeIcons.square,
                         )),
                     SpeedDialChild(
-                        onTap: () => drawingMode.value = DrawingMode.circle,
+                        onTap: () {
+                          drawingMode.value = DrawingMode.circle;
+                          closeMagicPen();
+                        },
                         child: const Icon(
                           FontAwesomeIcons.circle,
+                        )),
+                    SpeedDialChild(
+                        onTap: () => drawingMode.value = DrawingMode.magicPen,
+                        child: const Icon(
+                          FontAwesomeIcons.wandMagicSparkles,
                         )),
                   ],
                   child: () {
@@ -97,13 +119,16 @@ class CanvasSideBar extends HookWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                                width: 22, height: 2, color: Colors.grey[900]),
+                                width: 22, height: 2, color: Colors.white),
                           ],
                         );
                       case DrawingMode.square:
                         return const Icon(FontAwesomeIcons.square);
                       case DrawingMode.circle:
                         return const Icon(FontAwesomeIcons.circle);
+                      case DrawingMode.magicPen:
+                        return const Icon(FontAwesomeIcons.wandMagicSparkles);
+
                       default:
                         return const Icon(FontAwesomeIcons.pencil);
                     }
@@ -130,7 +155,7 @@ class CanvasSideBar extends HookWidget {
               ColorPalette(
                 selectedColor: selectedColor,
               ),
-              /*
+              /* //! Stroke size!
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -176,46 +201,97 @@ class CanvasSideBar extends HookWidget {
     );
   }
 
+  closeMagicPen() {
+    allSketches.value = [...allSketches.value, ...selectedSketches.value];
+    selectedSketches.value = [];
+    currentSelection.value = null;
+  }
+
   showTextDialog(BuildContext context) {
     final TextEditingController textController = TextEditingController();
+
     String insertedText = "";
+
+    List<Color> colors = [
+      ...Colors.primaries,
+      Colors.black,
+      Colors.white,
+    ];
 
     showDialog(
         context: context,
         builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text("Insert text!"),
-            content: SingleChildScrollView(
-              child: Column(
-                children: <Widget>[
-                  TextField(
-                    controller: textController,
-                    decoration: const InputDecoration(
-                      labelText: 'Enter your text',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (text) {
-                      insertedText = text;
-                    },
-                  ),
-                ],
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                child: const Text("Done"),
-                onPressed: () {
-                  if (insertedText.trim().isNotEmpty) {
-                    Sketch sketch = Sketch.fromText(insertedText);
+          Color backgroundTextColor = Colors.white;
 
-                    allSketches.value = List.from(allSketches.value)
-                      ..add(sketch);
-                  }
-                  Navigator.pop(context);
-                },
+          return StatefulBuilder(builder: (context, setState) {
+            return AlertDialog(
+              title: const Text("Insert text!"),
+              content: SingleChildScrollView(
+                child: Column(
+                  children: <Widget>[
+                    TextField(
+                      controller: textController,
+                      decoration: const InputDecoration(
+                        labelText: 'Enter your text',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (text) {
+                        insertedText = text;
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 2,
+                      runSpacing: 2,
+                      children: [
+                        for (Color color in colors)
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  backgroundTextColor = color;
+                                });
+                              },
+                              child: Container(
+                                height: 35,
+                                width: 35,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  border: Border.all(
+                                      color: backgroundTextColor == color
+                                          ? Colors.blue
+                                          : Colors.grey,
+                                      width: 1.5),
+                                  borderRadius: const BorderRadius.all(
+                                      Radius.circular(5)),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ],
-          );
+              actions: <Widget>[
+                TextButton(
+                  child: const Text("Done"),
+                  onPressed: () {
+                    if (insertedText.trim().isNotEmpty) {
+                      Sketch sketch =
+                          Sketch.fromText(insertedText, backgroundTextColor);
+
+                      allSketches.value = List.from(allSketches.value)
+                        ..add(sketch);
+                    }
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            );
+          });
         });
   }
 

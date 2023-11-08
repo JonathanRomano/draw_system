@@ -1,3 +1,4 @@
+import 'package:draw_system/models/selection.dart';
 import 'package:flutter/material.dart';
 
 import 'package:draw_system/widgets/drawing_canvas.dart';
@@ -23,6 +24,8 @@ class CanvasWithImage2 extends HookWidget {
 
     ValueNotifier<Sketch?> currentSketch = useState(null);
     ValueNotifier<List<Sketch>> allSketches = useState([]);
+    ValueNotifier<List<Sketch>> selectedSketches = useState([]);
+    ValueNotifier<Selection?> currentSelection = useState(null);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,6 +61,8 @@ class CanvasWithImage2 extends HookWidget {
               allSketches: allSketches,
               canvasGlobalKey: canvasGlobalKey,
               filled: filled,
+              selectedSketches: selectedSketches,
+              currentSelection: currentSelection,
             ),
           ),
         ],
